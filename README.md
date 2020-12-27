@@ -45,6 +45,7 @@ Run this in a terminal:
 cleos create account eosio talk EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 cleos set code talk talk.wasm
 cleos set abi talk talk.abi
+cleos set contract talk  ./ talk.wasm talk.abi -p talk
 
 ```
 
