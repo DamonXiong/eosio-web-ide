@@ -13,6 +13,7 @@ interface PostData {
     user?: string;
     reply_to?: number;
     content?: string;
+    like_id?: number;
 };
 
 interface PostFormState {
@@ -33,7 +34,8 @@ class PostForm extends React.Component<{}, PostFormState> {
                 id: 0,
                 user: 'bob',
                 reply_to: 0,
-                content: 'This is a test'
+                content: 'This is a test',
+                like_id: 0
             },
             error: '',
         };
@@ -51,6 +53,62 @@ class PostForm extends React.Component<{}, PostFormState> {
                     actions: [{
                         account: 'talk',
                         name: 'post',
+                        authorization: [{
+                            actor: this.state.data.user,
+                            permission: 'active',
+                        }],
+                        data: this.state.data,
+                    }]
+                }, {
+                    blocksBehind: 3,
+                    expireSeconds: 30,
+                });
+            console.log(result);
+            this.setState({ error: '' });
+        } catch (e) {
+            if (e.json)
+                this.setState({ error: JSON.stringify(e.json, null, 4) });
+            else
+                this.setState({ error: '' + e });
+        }
+    }
+
+    async like() {
+        try {
+            this.api.signatureProvider = new JsSignatureProvider([this.state.privateKey]);
+            const result = await this.api.transact(
+                {
+                    actions: [{
+                        account: 'talk',
+                        name: 'like',
+                        authorization: [{
+                            actor: this.state.data.user,
+                            permission: 'active',
+                        }],
+                        data: this.state.data,
+                    }]
+                }, {
+                    blocksBehind: 3,
+                    expireSeconds: 30,
+                });
+            console.log(result);
+            this.setState({ error: '' });
+        } catch (e) {
+            if (e.json)
+                this.setState({ error: JSON.stringify(e.json, null, 4) });
+            else
+                this.setState({ error: '' + e });
+        }
+    }
+
+    async unlike() {
+        try {
+            this.api.signatureProvider = new JsSignatureProvider([this.state.privateKey]);
+            const result = await this.api.transact(
+                {
+                    actions: [{
+                        account: 'talk',
+                        name: 'unlike',
                         authorization: [{
                             actor: this.state.data.user,
                             permission: 'active',
@@ -111,6 +169,37 @@ class PostForm extends React.Component<{}, PostFormState> {
             </table>
             <br />
             <button onClick={e => this.post()}>Post</button>
+            <table>
+                <tbody>
+                    <tr>
+                        <td>Private Key</td>
+                        <td><input
+                            style={{ width: 500 }}
+                            value={this.state.privateKey}
+                            onChange={e => this.setState({ privateKey: e.target.value })}
+                        /></td>
+                    </tr>
+                    <tr>
+                        <td>User</td>
+                        <td><input
+                            style={{ width: 500 }}
+                            value={this.state.data.user}
+                            onChange={e => this.setData({ user: e.target.value })}
+                        /></td>
+                    </tr>
+                    <tr>
+                        <td>Like Id</td>
+                        <td><input
+                            style={{ width: 500 }}
+                            value={this.state.data.like_id}
+                            onChange={e => this.setData({ like_id: +e.target.value })}
+                        /></td>
+                    </tr>
+                </tbody>
+            </table>
+            <br />
+            <button onClick={e => this.like()}>Like</button>
+            <button onClick={e => this.unlike()}>UnLike</button>
             {this.state.error && <div>
                 <br />
                 Error:
@@ -134,15 +223,25 @@ class Messages extends React.Component<{}, { content: string }> {
                 const rows = await rpc.get_table_rows({
                     json: true, code: 'talk', scope: '', table: 'message', limit: 1000,
                 });
+                const likes = await rpc.get_table_rows({
+                    json: true, code: 'talk', scope: '', table: 'likes', limit: 1000,
+                });
                 let content =
-                    'id          reply_to      user          content\n' +
-                    '=============================================================\n';
-                for (let row of rows.rows)
+                    'id          reply_to      user          content                    like\n' +
+                    '===================================================================================\n';
+                for (let row of rows.rows) {
+                    let likestr = '';
+                    for (let like of likes.rows) {
+                        if (like.like_id === row.id) {
+                            likestr += like.user + ' ';
+                        }
+                    }
                     content +=
                         (row.id + '').padEnd(12) +
                         (row.reply_to + '').padEnd(12) + '  ' +
                         row.user.padEnd(14) +
-                        row.content + '\n';
+                        row.content.padEnd(13)+ '        ' + likestr + '\n';
+                }
                 this.setState({ content });
             } catch (e) {
                 if (e.json)
